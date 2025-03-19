@@ -1,0 +1,11 @@
+transliterate
+nltk
+numpy
+pandas
+requests
+tqdm
+typing_extensions
+xgboost
+scikit-learn
+flask
+functions-framework

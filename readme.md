@@ -1,0 +1,1 @@
+https://yandex.cloud/ru/docs/serverless-containers/tutorials/functions-framework-to-container#python_1
