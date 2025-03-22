@@ -23,17 +23,17 @@ import flask
 import functions_framework
 
 save_dir = 'models'
-# Разные max_depth для ансамбля
-max_depths = [4, 5, 6, 7, 8]
+n_models = 5  # Количество моделей
+
 
 # Загрузка моделей
 loaded_models = []
-for max_depth in max_depths:
-    model_path = os.path.join(save_dir, f"xgboost_model_maxdepth{max_depth}.xgb")  # ✅ Исправлено расширение
+for i in range(n_models):
+    model_path = os.path.join(save_dir, f"xgboost_model_{i+1}.xgb")  # ✅ Исправлено расширение
     model = XGBRegressor()
     model.load_model(model_path)
     loaded_models.append(model)
-    print(f"✅ Загружена модель с max_depth={max_depth} из {model_path}")
+    print(f"✅ Загружена модель с max_depth={i} из {model_path}")
 
 
 def evaluate_special_characters_length(string):
