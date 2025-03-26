@@ -137,51 +137,78 @@ def get_data(username):
     return data
 
 
-def predict(X_test):
+# def predict(X_test):
+#     predictions = np.array([model.predict(X_test) for model in loaded_models])
+#     uncertainty = np.std(predictions)
+#     pred_mean = max(1, np.mean(predictions))  # Защита от деления на 0
+#     confidence_score = (1 - uncertainty / pred_mean) * 100
+#     confidence_score = np.clip(confidence_score, 0, 100)
+
+#     result = "=" * 40
+
+#     print("=" * 40)
+#     result += "\n" + "📌 Предсказания моделей:"
+#     print("📌 Предсказания моделей:")
+#     for i, pred in enumerate(predictions, 1):
+#         pred_value = pred.item() if isinstance(pred, np.ndarray) else float(pred)  # Извлекаем число из массива
+#         pred_ton = pred_value  # В TON
+#         pred_usd = pred_value * course  # В USD
+
+#         result += f"\n  Модель {i}: {pred_ton:,.2f} TON ({pred_usd:,.2f} USD)"
+#         print(f"  Модель {i}: {pred_ton:,.2f} TON ({pred_usd:,.2f} USD)")
+
+#     result += "\n" + "-" * 40
+#     print("-" * 40)
+
+#     uncertainty_ton = uncertainty
+#     uncertainty_usd = uncertainty * course
+#     pred_mean_ton = pred_mean
+#     pred_mean_usd = pred_mean * course
+
+#     result += f"\n📊 Разброс предсказаний: {uncertainty_ton:,.2f} TON ({uncertainty_usd:,.2f} USD)"
+#     print(f"📊 Разброс предсказаний: {uncertainty_ton:,.2f} TON ({uncertainty_usd:,.2f} USD)")
+
+#     result += f"\n📈 Среднее предсказание: {pred_mean_ton:,.2f} TON ({pred_mean_usd:,.2f} USD)"
+#     print(f"📈 Среднее предсказание: {pred_mean_ton:,.2f} TON ({pred_mean_usd:,.2f} USD)")
+
+#     result += f"\n🔹 Уверенность модели: {confidence_score:.2f}%"
+#     print(f"🔹 Уверенность модели: {confidence_score:.2f}%")
+
+#     result += "\n" + "=" * 40
+#     print("=" * 40)
+    
+#     return result
+
+# @functions_framework.http
+# def helloWorld(request: flask.Request) -> flask.typing.ResponseReturnValue:
+#     print(request.json)
+#     X_test = get_data(request.json["username"]).iloc[:, 1:]
+#     return predict(X_test)
+
+def predict(X_test, username):
     predictions = np.array([model.predict(X_test) for model in loaded_models])
     uncertainty = np.std(predictions)
     pred_mean = max(1, np.mean(predictions))  # Защита от деления на 0
     confidence_score = (1 - uncertainty / pred_mean) * 100
     confidence_score = np.clip(confidence_score, 0, 100)
 
-    result = "=" * 40
-
-    print("=" * 40)
-    result += "\n" + "📌 Предсказания моделей:"
-    print("📌 Предсказания моделей:")
-    for i, pred in enumerate(predictions, 1):
-        pred_value = pred.item() if isinstance(pred, np.ndarray) else float(pred)  # Извлекаем число из массива
-        pred_ton = pred_value  # В TON
-        pred_usd = pred_value * course  # В USD
-
-        result += f"\n  Модель {i}: {pred_ton:,.2f} TON ({pred_usd:,.2f} USD)"
-        print(f"  Модель {i}: {pred_ton:,.2f} TON ({pred_usd:,.2f} USD)")
-
-    result += "\n" + "-" * 40
-    print("-" * 40)
-
-    uncertainty_ton = uncertainty
-    uncertainty_usd = uncertainty * course
-    pred_mean_ton = pred_mean
-    pred_mean_usd = pred_mean * course
-
-    result += f"\n📊 Разброс предсказаний: {uncertainty_ton:,.2f} TON ({uncertainty_usd:,.2f} USD)"
-    print(f"📊 Разброс предсказаний: {uncertainty_ton:,.2f} TON ({uncertainty_usd:,.2f} USD)")
-
-    result += f"\n📈 Среднее предсказание: {pred_mean_ton:,.2f} TON ({pred_mean_usd:,.2f} USD)"
-    print(f"📈 Среднее предсказание: {pred_mean_ton:,.2f} TON ({pred_mean_usd:,.2f} USD)")
-
-    result += f"\n🔹 Уверенность модели: {confidence_score:.2f}%"
-    print(f"🔹 Уверенность модели: {confidence_score:.2f}%")
-
-    result += "\n" + "=" * 40
-    print("=" * 40)
+    # Создаем словарь с результатами
+    result = {
+        "username": username,
+        "priceInUSD": float(pred_mean * course),
+        "priceInTon": float(pred_mean),
+        "confidence": float(confidence_score),
+        "score": float(pred_mean)  # Если score должен быть чем-то другим, укажите как его вычислять
+    }
     
     return result
-
 
 @functions_framework.http
 def helloWorld(request: flask.Request) -> flask.typing.ResponseReturnValue:
     print(request.json)
-    X_test = get_data(request.json["username"]).iloc[:, 1:]
-    return predict(X_test)
+    username = request.json["username"]
+    X_test = get_data(username).iloc[:, 1:]
+    prediction_result = predict(X_test, username)
+    
+    # Возвращаем результат как JSON
+    return flask.jsonify(prediction_result)
