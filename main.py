@@ -151,19 +151,32 @@ def predict(X_test):
     print("📌 Предсказания моделей:")
     for i, pred in enumerate(predictions, 1):
         pred_value = pred.item() if isinstance(pred, np.ndarray) else float(pred)  # Извлекаем число из массива
-        result += "\n" + f"  Модель {i}: {pred_value * course:,.2f}"
-        print(f"  Модель {i}: {pred_value * course:,.2f}")
+        pred_ton = pred_value  # В TON
+        pred_usd = pred_value * course  # В USD
+
+        result += f"\n  Модель {i}: {pred_ton:,.2f} TON ({pred_usd:,.2f} USD)"
+        print(f"  Модель {i}: {pred_ton:,.2f} TON ({pred_usd:,.2f} USD)")
+
     result += "\n" + "-" * 40
     print("-" * 40)
-    result += "\n" + f"📊 Разброс предсказаний (uncertainty): {uncertainty * course:,.2f}"
-    print(f"📊 Разброс предсказаний (uncertainty): {uncertainty * course:,.2f}")
-    result += "\n" + f"📈 Среднее предсказание (pred_mean): {pred_mean * course:,.2f}"
-    print(f"📈 Среднее предсказание (pred_mean): {pred_mean * course:,.2f}")
 
-    result += "\n" +f"🔹 Уверенность модели: {confidence_score:.2f}%"
+    uncertainty_ton = uncertainty
+    uncertainty_usd = uncertainty * course
+    pred_mean_ton = pred_mean
+    pred_mean_usd = pred_mean * course
+
+    result += f"\n📊 Разброс предсказаний: {uncertainty_ton:,.2f} TON ({uncertainty_usd:,.2f} USD)"
+    print(f"📊 Разброс предсказаний: {uncertainty_ton:,.2f} TON ({uncertainty_usd:,.2f} USD)")
+
+    result += f"\n📈 Среднее предсказание: {pred_mean_ton:,.2f} TON ({pred_mean_usd:,.2f} USD)"
+    print(f"📈 Среднее предсказание: {pred_mean_ton:,.2f} TON ({pred_mean_usd:,.2f} USD)")
+
+    result += f"\n🔹 Уверенность модели: {confidence_score:.2f}%"
     print(f"🔹 Уверенность модели: {confidence_score:.2f}%")
+
     result += "\n" + "=" * 40
     print("=" * 40)
+    
     return result
 
 
