@@ -1,3 +1,6 @@
+catboost
+numpy
+pandas
 transliterate
 nltk
 numpy

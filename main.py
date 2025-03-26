@@ -2,39 +2,34 @@ import numpy as np
 import pandas as pd
 import re
 import ast
-# from openai import OpenAI
 from typing_extensions import override
-# from openai import AssistantEventHandler
 from collections import Counter
 import nltk
-
 nltk.download('wordnet')
 from nltk.corpus import wordnet
 import requests
 from tqdm import tqdm
 from transliterate import translit
-import xgboost as xgb
-from xgboost import XGBRegressor
+from catboost import CatBoostRegressor
 import time
 import os
 import pickle
-
 import flask
 import functions_framework
 
 save_dir = 'models'
 n_models = 5  # Количество моделей
 
+seeds = [42, 100, 2024, 999, 777]
 
-# Загрузка моделей
+# Загружаем модели перед инференсом
 loaded_models = []
-for i in range(n_models):
-    model_path = os.path.join(save_dir, f"xgboost_model_{i+1}.xgb")  # ✅ Исправлено расширение
-    model = XGBRegressor()
+for seed in seeds:
+    model_path = os.path.join(save_dir, f"catboost_model_{seed}_2.cbm")
+    model = CatBoostRegressor()
     model.load_model(model_path)
     loaded_models.append(model)
-    print(f"✅ Загружена модель с max_depth={i} из {model_path}")
-
+    print(f"✅ Модель {seed} загружена из {model_path}")    
 
 def evaluate_special_characters_length(string):
     if string is None:
