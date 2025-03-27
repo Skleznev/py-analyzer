@@ -185,23 +185,98 @@ def get_data(username):
 #     X_test = get_data(request.json["username"]).iloc[:, 1:]
 #     return predict(X_test)
 
+
+
+
+
+
+
+
+# def predict(X_test, username):
+#     predictions = np.array([model.predict(X_test) for model in loaded_models])
+#     uncertainty = np.std(predictions)
+#     pred_mean = max(1, np.mean(predictions))  # Защита от деления на 0
+#     confidence_score = (1 - uncertainty / pred_mean) * 100
+#     confidence_score = np.clip(confidence_score, 0, 100)
+
+#     # Создаем словарь с результатами
+#     result = {
+#         "username": username,
+#         "priceInUSD": float(pred_mean * course),
+#         "priceInTon": float(pred_mean),
+#         "confidence": float(confidence_score),
+#         "score": float(pred_mean)  # Если score должен быть чем-то другим, укажите как его вычислять
+#     }
+    
+#     return result
+
+
+
 def predict(X_test, username):
+    # Вычисляем предсказания и статистики
     predictions = np.array([model.predict(X_test) for model in loaded_models])
     uncertainty = np.std(predictions)
     pred_mean = max(1, np.mean(predictions))  # Защита от деления на 0
     confidence_score = (1 - uncertainty / pred_mean) * 100
     confidence_score = np.clip(confidence_score, 0, 100)
 
+    # Рассчитываем score по заданной формуле
+    price_ton = pred_mean
+    
+    if price_ton <= 100:
+        score = (607 / 100) * price_ton
+    elif price_ton <= 1000:
+        score = 607 + ((845 - 607) / (1000 - 100)) * (price_ton - 100)
+    elif price_ton <= 10000:
+        score = 845 + ((977 - 845) / (10000 - 1000)) * (price_ton - 1000)
+    else:
+        # Для значений выше 10000 используем фиксированный предел 999
+        score = 977 + ((999 - 977) / (20000 - 10000)) * (price_ton - 10000)
+        score = min(score, 999)  # Ограничиваем максимальное значение 999
+
+    # Формируем сообщение
+    message = "=" * 40
+    message += "\n" + "📌 Предсказания моделей:"
+    for i, pred in enumerate(predictions, 1):
+        pred_value = pred.item() if isinstance(pred, np.ndarray) else float(pred)
+        pred_ton = pred_value
+        pred_usd = pred_value * course
+        message += f"\n  Модель {i}: {pred_ton:,.2f} TON ({pred_usd:,.2f} USD)"
+
+    message += "\n" + "-" * 40
+    
+    uncertainty_ton = uncertainty
+    uncertainty_usd = uncertainty * course
+    pred_mean_ton = pred_mean
+    pred_mean_usd = pred_mean * course
+
+    message += f"\n📊 Разброс предсказаний: {uncertainty_ton:,.2f} TON ({uncertainty_usd:,.2f} USD)"
+    message += f"\n📈 Среднее предсказание: {pred_mean_ton:,.2f} TON ({pred_mean_usd:,.2f} USD)"
+    message += f"\n🔹 Уверенность модели: {confidence_score:.2f}%"
+    message += "\n" + "=" * 40
+
     # Создаем словарь с результатами
     result = {
         "username": username,
-        "priceInUSD": float(pred_mean * course),
-        "priceInTon": float(pred_mean),
+        "priceInUSD": float(pred_mean_usd),
+        "priceInTon": float(pred_mean_ton),
         "confidence": float(confidence_score),
-        "score": float(pred_mean)  # Если score должен быть чем-то другим, укажите как его вычислять
+        "score": float(score),  # Теперь score рассчитывается по новой формуле
+        "message": message
     }
     
     return result
+
+
+
+
+
+
+
+
+
+
+
 
 @functions_framework.http
 def helloWorld(request: flask.Request) -> flask.typing.ResponseReturnValue:
