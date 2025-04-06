@@ -25,7 +25,7 @@ seeds = [42, 100, 2024, 999, 777]
 # Загружаем модели перед инференсом
 loaded_models = []
 for seed in seeds:
-    model_path = os.path.join(save_dir, f"catboost_model_{seed}_2.cbm")
+    model_path = os.path.join(save_dir, f"catboost_model_log_{seed}.cbm")
     model = CatBoostRegressor()
     model.load_model(model_path)
     loaded_models.append(model)
@@ -138,16 +138,28 @@ def get_data(username):
 
 
 def predict(X_test, username):
-    # Вычисляем предсказания и статистики
-    predictions = np.array([model.predict(X_test) for model in loaded_models])
+    # Получаем актуальный курс TON -> USD
+    url = 'https://api.coingecko.com/api/v3/simple/price'
+    params = {
+        'ids': 'the-open-network',
+        'vs_currencies': 'usd'
+    }
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        course = data['the-open-network']['usd']
+    else:
+        course = 2.85  # fallback, если курс не получен
+
+    # Предсказания моделей с обратным логарифмом
+    predictions = np.array([np.expm1(model.predict(X_test)) for model in loaded_models])
     uncertainty = np.std(predictions)
     pred_mean = max(1, np.mean(predictions))  # Защита от деления на 0
     confidence_score = (1 - uncertainty / pred_mean) * 100
     confidence_score = np.clip(confidence_score, 0, 100)
 
-    # Рассчитываем score по заданной формуле
+    # Расчёт score по формуле
     price_ton = pred_mean
-    
     if price_ton <= 100:
         score = (607 / 100) * price_ton
     elif price_ton <= 1000:
@@ -155,13 +167,12 @@ def predict(X_test, username):
     elif price_ton <= 10000:
         score = 845 + ((977 - 845) / (10000 - 1000)) * (price_ton - 1000)
     else:
-        # Для значений выше 10000 используем фиксированный предел 999
         score = 977 + ((999 - 977) / (20000 - 10000)) * (price_ton - 10000)
-        score = min(score, 999)  # Ограничиваем максимальное значение 999
+        score = min(score, 999)
 
     # Формируем сообщение
     message = "=" * 40
-    message += "\n" + "📌 Предсказания моделей:"
+    message += "\n📌 Предсказания моделей:"
     for i, pred in enumerate(predictions, 1):
         pred_value = pred.item() if isinstance(pred, np.ndarray) else float(pred)
         pred_ton = round(pred_value)
@@ -169,7 +180,6 @@ def predict(X_test, username):
         message += f"\n  Модель {i}: {pred_ton:,} TON ({pred_usd:,} USD)"
 
     message += "\n" + "-" * 40
-    
     uncertainty_ton = round(uncertainty)
     uncertainty_usd = round(uncertainty * course)
     pred_mean_ton = round(pred_mean)
@@ -180,16 +190,17 @@ def predict(X_test, username):
     message += f"\n🔹 Уверенность модели: {round(confidence_score)}%"
     message += "\n" + "=" * 40
 
-    # Создаем словарь с результатами
+    # Результат
     result = {
         "username": username,
         "priceInUSD": int(pred_mean_usd),
         "priceInTon": int(pred_mean_ton),
         "confidence": int(round(confidence_score)),
-        "score": int(round(score)),  # Теперь score рассчитывается по новой формуле
+        "score": int(round(score)),
+        "course": course,
         "message": message
     }
-    
+
     return result
 
 
