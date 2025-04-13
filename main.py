@@ -17,19 +17,20 @@ import pickle
 import flask
 import functions_framework
 
-save_dir = 'models'
-n_models = 5  # Количество моделей
 
+save_dir = 'models'
+n_models = 5
 seeds = [42, 100, 2024, 999, 777]
 
-# Загружаем модели перед инференсом
+
 loaded_models = []
 for seed in seeds:
-    model_path = os.path.join(save_dir, f"catboost_model_log_{seed}.cbm")
+    model_path = os.path.join(save_dir, f"catboost_model_log_{seed}_1304.cbm")
     model = CatBoostRegressor()
     model.load_model(model_path)
     loaded_models.append(model)
-    print(f"✅ Модель {seed} загружена из {model_path}")    
+    print(f"✅ Модель {seed} загружена из {model_path}")
+
 
 def evaluate_special_characters_length(string):
     if string is None:
@@ -64,21 +65,18 @@ def most_frequent_char_count(string):
 
 
 def is_english_word_wordnet(word: str) -> int:
-    # Приводим к нижнему регистру
     word_lower = word.lower()
-    return 1 if len(wordnet.synsets(word_lower)) > 0 else 0  # Возвращаем 1 или 0
+    return 1 if len(wordnet.synsets(word_lower)) > 0 else 0
 
 
 with open('translit_cache.pkl', 'rb') as f:
     translit_words = pickle.load(f)
 
 
-# Функция проверки юзернейма
 def is_translit(username):
-    return 1 if username.lower() in translit_words else 0  # Возвращаем 1 или 0
+    return 1 if username.lower() in translit_words else 0
 
 
-# Функция для отправки запроса к API
 def get_valuations(domain):
     url = 'https://valuation.humbleworth.com/api/valuation'
     headers = {'Content-Type': 'application/json'}
@@ -90,24 +88,14 @@ def get_valuations(domain):
         return []
 
 
-url = 'https://api.coingecko.com/api/v3/simple/price'
-params = {
-    'ids': 'the-open-network',
-    'vs_currencies': 'usd'
-}
-response = requests.get(url, params=params)
-
-if response.status_code == 200:
-    data = response.json()
-
-course = data['the-open-network']['usd']
-
-
-def get_data(username):
+def get_data(username, ai_params):
     start_time = time.time()
 
-    # data = process_username(username)
+    ai_columns = ['real_word', 'person', 'wordplay', 'company', 'mlt_letters', 'slang', 'betting', 'pop', 'sex', 'crypto', 'location', 'verb', 'offensive', 'name', 'event', 'a_b_c_d', 'web3']
     data = pd.DataFrame({'username': [username]})
+    for col, value in zip(ai_columns, ai_params):
+        data[col] = value
+
     data['length'] = data['username'].apply(lambda x: len(x) if x is not None else 0)
     data['special_characters_length'] = data['username'].apply(evaluate_special_characters_length)
     data['numbers_length'] = data['username'].apply(evaluate_number_length)
@@ -117,16 +105,14 @@ def get_data(username):
     data['IsInDictionary_2'] = data['username'].apply(is_english_word_wordnet)
     data['is_translit'] = data['username'].apply(is_translit)
 
-    # username = data['username'].iloc[0]
-    domain = f"{username}.com"  # Формируем домен
+    domain = f"{username}.com"
     valuations = get_valuations(domain)
     if valuations:
-        valuation_data = valuations[0]  # Первый (и единственный) элемент в списке
+        valuation_data = valuations[0]
         data['auction'] = valuation_data.get('auction', None)
         data['brokerage'] = valuation_data.get('brokerage', None)
         data['marketplace'] = valuation_data.get('marketplace', None)
     else:
-        # Если API не вернул данные, добавляем пустые столбцы
         data['auction'] = None
         data['brokerage'] = None
         data['marketplace'] = None
@@ -138,78 +124,36 @@ def get_data(username):
 
 
 def predict(X_test, username):
-    # Получаем актуальный курс TON -> USD
-    url = 'https://api.coingecko.com/api/v3/simple/price'
-    params = {
-        'ids': 'the-open-network',
-        'vs_currencies': 'usd'
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        data = response.json()
-        course = data['the-open-network']['usd']
-    else:
-        course = 2.85  # fallback, если курс не получен
-
-    # Предсказания моделей с обратным логарифмом
     predictions = np.array([np.expm1(model.predict(X_test)) for model in loaded_models])
     uncertainty = np.std(predictions)
     pred_mean = max(1, np.mean(predictions))  # Защита от деления на 0
     confidence_score = (1 - uncertainty / pred_mean) * 100
     confidence_score = np.clip(confidence_score, 0, 100)
 
-    # Расчёт score по формуле
-    price_ton = pred_mean
-    if price_ton <= 100:
-        score = (607 / 100) * price_ton
-    elif price_ton <= 1000:
-        score = 607 + ((845 - 607) / (1000 - 100)) * (price_ton - 100)
-    elif price_ton <= 10000:
-        score = 845 + ((977 - 845) / (10000 - 1000)) * (price_ton - 1000)
+    if pred_mean <= 100:
+        score = (607 / 100) * pred_mean
+    elif pred_mean <= 1000:
+        score = 607 + ((845 - 607) / (1000 - 100)) * (pred_mean - 100)
+    elif pred_mean <= 10000:
+        score = 845 + ((977 - 845) / (10000 - 1000)) * (pred_mean - 1000)
     else:
-        score = 977 + ((999 - 977) / (20000 - 10000)) * (price_ton - 10000)
+        score = 977 + ((999 - 977) / (20000 - 10000)) * (pred_mean - 10000)
         score = min(score, 999)
 
-    # Формируем сообщение
-    message = "=" * 40
-    message += "\n📌 Предсказания моделей:"
-    for i, pred in enumerate(predictions, 1):
-        pred_value = pred.item() if isinstance(pred, np.ndarray) else float(pred)
-        pred_ton = round(pred_value)
-        pred_usd = round(pred_value * course)
-        message += f"\n  Модель {i}: {pred_ton:,} TON ({pred_usd:,} USD)"
-
-    message += "\n" + "-" * 40
-    uncertainty_ton = round(uncertainty)
-    uncertainty_usd = round(uncertainty * course)
-    pred_mean_ton = round(pred_mean)
-    pred_mean_usd = round(pred_mean * course)
-
-    message += f"\n📊 Разброс предсказаний: {uncertainty_ton:,} TON ({uncertainty_usd:,} USD)"
-    message += f"\n📈 Среднее предсказание: {pred_mean_ton:,} TON ({pred_mean_usd:,} USD)"
-    message += f"\n🔹 Уверенность модели: {round(confidence_score)}%"
-    message += "\n" + "=" * 40
-
-    # Результат
     result = {
         "username": username,
-        "priceInUSD": int(pred_mean_usd),
-        "priceInTon": int(pred_mean_ton),
+        "priceInTon": int(pred_mean),
         "confidence": int(round(confidence_score)),
-        "score": int(round(score)),
-        "course": course,
-        "message": message
+        "score": int(round(score))
     }
 
     return result
-
 
 @functions_framework.http
 def helloWorld(request: flask.Request) -> flask.typing.ResponseReturnValue:
     print(request.json)
     username = request.json["username"]
-    X_test = get_data(username).iloc[:, 1:]
+    ai_params = request.json["ai_params"]
+    X_test = get_data(username, ai_params).iloc[:, 1:]
     prediction_result = predict(X_test, username)
-    
-    # Возвращаем результат как JSON
     return flask.jsonify(prediction_result)
