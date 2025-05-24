@@ -25,7 +25,7 @@ seeds = [42, 100, 2024, 999, 777]
 
 loaded_models = []
 for seed in seeds:
-    model_path = os.path.join(save_dir, f"catboost_model_log_{seed}_1304.cbm")
+    model_path = os.path.join(save_dir, f"catboost_model_log_{seed}_14_2405.cbm")
     model = CatBoostRegressor()
     model.load_model(model_path)
     loaded_models.append(model)
@@ -142,9 +142,10 @@ def predict(X_test, username):
 
     result = {
         "username": username,
-        "priceInTon": int(pred_mean),
+        "priceInUSD": int(pred_mean),
         "confidence": int(round(confidence_score)),
-        "score": int(round(score))
+        "score": int(round(score)),
+        "version": "1.4"
     }
 
     return result
