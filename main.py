@@ -145,7 +145,7 @@ def predict(X_test, username):
         "priceInUSD": int(pred_mean),
         "confidence": int(round(confidence_score)),
         "score": int(round(score)),
-        "version": "1.4"
+        "version": "1.4.2"
     }
 
     return result
