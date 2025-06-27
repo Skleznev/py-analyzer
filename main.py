@@ -25,7 +25,7 @@ seeds = [42, 100, 2024, 999, 777]
 
 loaded_models = []
 for seed in seeds:
-    model_path = os.path.join(save_dir, f"catboost_model_log_{seed}_143.cbm")
+    model_path = os.path.join(save_dir, f"catboost_model_log_{seed}_144.cbm")
     model = CatBoostRegressor()
     model.load_model(model_path)
     loaded_models.append(model)
@@ -91,7 +91,7 @@ def get_valuations(domain):
 def get_data(username, ai_params):
     start_time = time.time()
 
-    ai_columns = ['real_word', 'person', 'wordplay', 'company', 'mlt_letters', 'slang', 'betting', 'pop', 'sex', 'crypto', 'location', 'verb', 'offensive', 'name', 'event', 'a_b_c_d', 'web3']
+    ai_columns = ['real_word','person','wordplay','company','mlt_letters','slang','betting','pop','sex','crypto','location','verb','offensive','name','a_b_c_d','web3','bot','Religion','Abbreviation']
     data = pd.DataFrame({'username': [username]})
     for col, value in zip(ai_columns, ai_params):
         data[col] = value
@@ -145,7 +145,7 @@ def predict(X_test, username):
         "priceInUSD": int(pred_mean),
         "confidence": int(round(confidence_score)),
         "score": int(round(score)),
-        "version": "1.4.3"
+        "version": "1.4.4"
     }
 
     return result
